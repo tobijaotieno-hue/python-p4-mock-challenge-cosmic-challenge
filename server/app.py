@@ -25,6 +25,128 @@ db.init_app(app)
 def home():
     return ''
 
+@app.route('/scientists', methods = ['GET', 'POST'])
+def scientists():
+
+    if request.method == 'GET':
+        scientists = Scientist.query.all()
+        scientists_dict = [scientist.to_dict(rules = ('-missions',)) for scientist in scientists]
+
+        response = make_response(
+            scientists_dict,
+            200
+        )
+
+    elif request.method == 'POST':
+        form_data = request.get_json()
+
+        try:
+            new_scientist_obj = Scientist(
+                name = form_data['name'],
+                field_of_study = form_data['field_of_study']
+            )
+
+            db.session.add(new_scientist_obj)
+            db.session.commit()
+
+            response = make_response(
+                new_scientist_obj.to_dict(rules = ('-missions',)),
+                201
+            )
+        
+        except ValueError:
+            response = make_response(
+                { "errors": ["validation errors"] },
+                400
+            )            
+
+    return response
+
+@app.route('/scientists/<int:id>', methods = ['GET', 'DELETE', 'PATCH'])
+def scientist_by_id(id):
+    scientist = Scientist.query.filter_by(id=id).first()
+        
+    if scientist:
+        if request.method == 'GET':
+            scientist_dict = scientist.to_dict()
+
+            response = make_response(
+                scientist_dict,
+                200
+            )
+        elif request.method == 'DELETE':
+
+            db.session.delete(scientist)
+            db.session.commit()
+
+            response = make_response(
+                {},
+                204
+            )
+        elif request.method == 'PATCH':
+            form_data = request.get_json()
+
+            try:
+                for attr in form_data:
+                    setattr(scientist, attr, form_data.get(attr))
+                
+                db.session.commit()
+
+                response = make_response(
+                    scientist.to_dict(rules = ('-missions',)),
+                    202
+                )
+
+            except ValueError: 
+                response = make_response(
+                    { "errors": ["validation errors"] },
+                    400
+                )
+        
+    else:
+        response = make_response(
+            {"error": "Scientist not found"},
+            404
+        )
+    return response
+    
+    
+
+@app.route('/planets', methods = ['GET'])
+def planets():
+    planets = Planet.query.all()
+    planets_dict = [planet.to_dict(rules = ('-missions',)) for planet in planets]
+
+    response = make_response(
+        planets_dict,
+        200
+    )
+    return response
+
+@app.route('/missions', methods = ['POST'])
+def missions():
+    form_data = request.get_json()
+
+    try:
+        new_missions_obj = Mission(
+            name = form_data['name'],
+            scientist_id = form_data['scientist_id'],
+            planet_id = form_data['planet_id']
+        )
+
+        db.session.add(new_missions_obj)
+        db.session.commit()
+
+        response = make_response(
+            new_missions_obj.to_dict(),
+            201
+        )
+    except ValueError:
+        response = make_response(
+            { "errors": ["validation errors"]},
+            400
+        )
+    return response
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
